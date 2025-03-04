@@ -38,7 +38,7 @@ void getHostAddr(const char* hostname, std::vector<std::string> &ips) {
 /// <returns>Список сообщений для отправки</returns>
 std::vector<msg_t> splitTextIntoMessages(std::string text) {
     std::vector<msg_t> messages;
-    short ver = 1;
+    short ver = 0;
     short parts = 0;
 
     if (text.length() % message_len >= 0) {
@@ -82,7 +82,6 @@ void recieveMessages(SOCKET sock) {
         // Формируем одно сообщение из частей
         do {
             int n = recvfrom(sock, (char*)&msg, sizeof(msg), 0, (struct sockaddr*)&sin, &len);
-            
 
             if (n == SOCKET_ERROR) {
                 std::cout << "Ошибка при получении сообщения: " << WSAGetLastError() << std::endl;
@@ -209,10 +208,6 @@ int main()
     // Запуск потока для приема сообщений
     std::thread recieveThread(recieveMessages, sock);
 
-    msg_t msg; // буфер для отправки текстового сообщения
-    msg.ver = 1;
-    msg.type = 0;
-
     while (true) {
         std::cout << "Сообщение: ";
         std::string text;
@@ -222,14 +217,12 @@ int main()
         std::vector<msg_t> messages = splitTextIntoMessages(text);
 
         for (size_t i = 0; i < messages.size(); i++) {  // Отправка сообщений
-            int n = sendto(sock, (const char*)&msg, sizeof(msg), 0, (struct sockaddr*)&addr, sizeof(addr));
+            int n = sendto(sock, (const char*)&messages.at(i), sizeof(messages.at(i)), 0, (struct sockaddr*)&addr, sizeof(addr));
 
             if (n == SOCKET_ERROR) {    // Сообщение не получилось отправить
                 std::cout << "Ошибка при отправке сообщения: " << WSAGetLastError() << std::endl;
             }
         }
-
-        msg.ver++;
     }
 
     recieveThread.join();
