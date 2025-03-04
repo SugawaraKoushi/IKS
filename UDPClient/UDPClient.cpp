@@ -4,7 +4,8 @@
 #include <WinSock2.h>
 #include <string>
 #include <thread>
-#include <set>
+#include <vector>
+#include <algorithm>
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -18,6 +19,15 @@ struct msg_t {
 
 #pragma pack()
 
+// Получение списка IP-адресов для указанного узла
+void getHostAddr(const char* hostname, std::vector<std::string> &ips) {
+    hostent* host = gethostbyname(hostname);
+
+    for (int i = 0; host->h_addr_list[i] != nullptr; i++) {
+        ips.push_back(inet_ntoa(*(in_addr*)host->h_addr_list[i]));
+    }
+}
+
 /// <summary>
 /// Получение сообщений
 /// </summary>
@@ -29,17 +39,8 @@ void recieveMessages(SOCKET sock) {
     // Получим свой IP-адрес
     char hostname[256];
     int err = gethostname(hostname, sizeof(hostname));
-    hostent* host = gethostbyname(hostname);
-
-    std::set<std::string> localIPs;
-
-    for (int i = 0; host->h_addr_list[i] != nullptr; i++) {
-        localIPs.insert(inet_ntoa(*(in_addr*)host->h_addr_list[i]));
-    }
-
-    if (err == SOCKET_ERROR) {
-        std::cout << "Ошибка при получении собстенного IP-адреса: " << WSAGetLastError() << std::endl;
-    }
+    std::vector<std::string> ips;
+    getHostAddr(hostname, ips);
 
     while (true) {
         int n = recvfrom(sock, (char*)&msg, sizeof(msg), 0, (struct sockaddr*)&sin, &len);
@@ -52,11 +53,8 @@ void recieveMessages(SOCKET sock) {
         else {
             std::string senderIP = inet_ntoa(sin.sin_addr);
 
-            if (localIPs.find(senderIP) == localIPs.end()) {
-                std::cout << "Сообщение успешно получено от " << senderIP << ": " << msg.text << std::endl;
-            }
-            else {
-                std::cout << "Игнорируем собственное сообщение." << std::endl;
+            if (std::find(ips.begin(), ips.end(), senderIP) == ips.end()) {
+                std::cout << "[" << senderIP << "]: " << msg.text << std::endl;
             }
         }
     }
@@ -99,37 +97,75 @@ int main()
         return 1;
     }
 
-    // Установим широковещательный формат
-    BOOL optval;
-    int optlen = sizeof(optval);
+    std::string broadcastMode;
+    std::cout << "Установить широковещательный формат? (y / n)" << std::endl;
 
-    // Определяем значение флага SO_BROADCAST
-    err = getsockopt(sock, SOL_SOCKET, SO_BROADCAST, (char*)&optval, &optlen);
+    do {
+        std::cin >> broadcastMode;
+    } while (broadcastMode[0] != 'y' && broadcastMode[0] != 'n');
 
-    // Если флаг false
-    if ((err != SOCKET_ERROR) && (optval != TRUE)) {
-        optval = TRUE;
-        optlen = sizeof(optval);
+    sockaddr_in addr = { 0 };
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(5150);
+    std::string reciever;
 
-        // Изменяем значение флага SO_BROADCAST
-        err = setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (char*)&optval, optlen);
+    if (broadcastMode[0] == 'y') { // Установим широковещательный формат
+        BOOL optval;
+        int optlen = sizeof(optval);
+
+        // Определяем значение флага SO_BROADCAST
+        err = getsockopt(sock, SOL_SOCKET, SO_BROADCAST, (char*)&optval, &optlen);
+
+        // Если флаг false
+        if ((err != SOCKET_ERROR) && (optval != TRUE)) {
+            optval = TRUE;
+            optlen = sizeof(optval);
+
+            // Изменяем значение флага SO_BROADCAST
+            err = setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (char*)&optval, optlen);
+        }
+
+        if (err == SOCKET_ERROR) {
+            closesocket(sock);
+            WSACleanup();
+            std::cout << "Не удалось установить широковещательный формат" << std::endl;
+            return 1;
+        }
+
+        // Подготовка структуры для отправки сообщений
+        addr.sin_addr.S_un.S_addr = htonl(INADDR_BROADCAST);
     }
+    else {  // Введем адрес или имя узла вручную
+        std::cout << "Введите IP-адрес получателя или его имя: ";
+        std::cin >> reciever;
+        bool isDone = false;
 
-    if (err == SOCKET_ERROR) {
-        closesocket(sock);
-        WSACleanup();
-        std::cout << "Не удалось установить широковещательный формат" << std::endl;
-        return 1;
+        do {
+            // Пользователь ввел IP-адрес?
+            err = inet_addr(reciever.c_str());
+            
+            if (err == INADDR_NONE) {
+                std::cout << "IP-адреса" << reciever << "не существует" << std::endl;
+            }
+            else {
+                isDone = true;
+            }
+
+            // Пользователь ввел имя узла?
+            std::vector<std::string> ips;
+            getHostAddr(reciever.c_str(), ips);
+
+            if (!ips.empty()) { // Нашли нужный IP-адрес по имени узла
+                reciever = ips.at(0);
+                isDone = true;
+            }
+        } while (!isDone);
+
+        addr.sin_addr.S_un.S_addr = inet_addr(reciever.c_str());
     }
 
     // Запуск потока для приема сообщений
     std::thread recieveThread(recieveMessages, sock);
-
-    // Подготовка структуры для отправки сообщений
-    sockaddr_in broadcastAddr = { 0 };
-    broadcastAddr.sin_family = AF_INET;
-    broadcastAddr.sin_port = htons(5150);
-    broadcastAddr.sin_addr.S_un.S_addr = htonl(INADDR_BROADCAST);
 
     msg_t msg; // буфер для отправки текстового сообщения
     msg.ver = 1;
@@ -143,12 +179,9 @@ int main()
         msg.text[sizeof(msg.text) - 1] = '\0';
 
         // Отправка текстового сообщения
-        int n = sendto(sock, (const char *)&msg, sizeof(msg), 0, (struct sockaddr*)&broadcastAddr, sizeof(broadcastAddr));
+        int n = sendto(sock, (const char *)&msg, sizeof(msg), 0, (struct sockaddr*)&addr, sizeof(addr));
 
-        if (n != SOCKET_ERROR) {    // Сообщение успешно отправлено
-            std::cout << "Сообщение успешно отправлено!" << std::endl;
-        }
-        else {
+        if (n == SOCKET_ERROR) {    // Сообщение не получилось отправить
             std::cout << "Ошибка при отправке сообщения: " << WSAGetLastError() << std::endl;
         }
 
