@@ -17,7 +17,7 @@ struct msg_t {
     short ver;          // версия (позиция)
     short type;         // тип сообщения
     short len;          // длина сообщений
-    char text[message_len];     // текст сообщения
+    char text[message_len + 1];     // текст сообщения
 };
 
 #pragma pack()
@@ -41,7 +41,7 @@ std::vector<msg_t> splitTextIntoMessages(std::string text) {
     short ver = 1;
     short parts = 0;
 
-    if (text.length() % message_len >= 0) {
+    if (text.length() % message_len > 0) {
         parts++;
     }
 
@@ -52,7 +52,8 @@ std::vector<msg_t> splitTextIntoMessages(std::string text) {
         msg.type = 1;
         msg.ver = ver++;
         msg.len = parts;
-        strcpy_s(msg.text, text.substr(i, message_len).c_str());
+        std::string substr = text.substr(i, message_len).c_str();
+        strcpy_s(msg.text, substr.c_str());
         msg.text[sizeof(msg.text) - 1] = '\0';
         messages.push_back(msg);
     }
