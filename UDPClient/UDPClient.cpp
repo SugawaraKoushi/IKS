@@ -38,7 +38,7 @@ void getHostAddr(const char* hostname, std::vector<std::string> &ips) {
 /// <returns>Список сообщений для отправки</returns>
 std::vector<msg_t> splitTextIntoMessages(std::string text) {
     std::vector<msg_t> messages;
-    short ver = 0;
+    short ver = 1;
     short parts = 0;
 
     if (text.length() % message_len >= 0) {
