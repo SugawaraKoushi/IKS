@@ -9,12 +9,15 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
+const int message_len = 10;
+
 #pragma pack(1)
 
 struct msg_t {
-    short ver;      // версия
-    short type;     // тип сообщения
-    char text[1024]; // текст сообщения
+    short ver;          // версия (позиция)
+    short type;         // тип сообщения
+    short len;          // длина сообщений
+    char text[message_len];     // текст сообщения
 };
 
 #pragma pack()
@@ -29,8 +32,38 @@ void getHostAddr(const char* hostname, std::vector<std::string> &ips) {
 }
 
 /// <summary>
-/// Получение сообщений
+/// Делит текст сообщения на части
 /// </summary>
+/// <param name="text">Текст</param>
+/// <returns>Список сообщений для отправки</returns>
+std::vector<msg_t> splitTextIntoMessages(std::string text) {
+    std::vector<msg_t> messages;
+    short ver = 1;
+    short parts = 0;
+
+    if (text.length() % message_len >= 0) {
+        parts++;
+    }
+
+    parts += text.length() / message_len;
+    
+    for (size_t i = 0; i < text.length(); i += message_len) {
+        msg_t msg;
+        msg.type = 1;
+        msg.ver = ver++;
+        msg.len = parts;
+        strcpy_s(msg.text, text.c_str());
+        msg.text[sizeof(msg.text) - 1] = '\0';
+        messages.push_back(msg);
+    }
+
+    return messages;
+}
+
+/// <summary>
+/// Получает сообщения
+/// </summary>
+/// <param name="sock">Сокет</param>
 void recieveMessages(SOCKET sock) {
     msg_t msg;
     sockaddr_in sin;
@@ -43,19 +76,28 @@ void recieveMessages(SOCKET sock) {
     getHostAddr(hostname, ips);
 
     while (true) {
-        int n = recvfrom(sock, (char*)&msg, sizeof(msg), 0, (struct sockaddr*)&sin, &len);
+        std::string text;
+        std::string senderIP;
 
-        if (n == SOCKET_ERROR) {
-            std::cout << "Ошибка при получении сообщения: " << WSAGetLastError() << std::endl;
-            err = WSAGetLastError();
-            std::cout << err << std::endl;
-        }
-        else {
-            std::string senderIP = inet_ntoa(sin.sin_addr);
+        // Формируем одно сообщение из частей
+        do {
+            int n = recvfrom(sock, (char*)&msg, sizeof(msg), 0, (struct sockaddr*)&sin, &len);
+            
 
-            if (std::find(ips.begin(), ips.end(), senderIP) == ips.end()) {
-                std::cout << "[" << senderIP << "]: " << msg.text << std::endl;
+            if (n == SOCKET_ERROR) {
+                std::cout << "Ошибка при получении сообщения: " << WSAGetLastError() << std::endl;
             }
+            else {
+                senderIP = inet_ntoa(sin.sin_addr);
+
+                if (std::find(ips.begin(), ips.end(), senderIP) == ips.end()) {
+                    text += msg.text;
+                }
+            }
+        } while (msg.ver != msg.len);
+        
+        if (std::find(ips.begin(), ips.end(), senderIP) == ips.end()) {
+            std::cout << "[" << senderIP << "]: " << text << std::endl;
         }
     }
 }
@@ -175,14 +217,16 @@ int main()
         std::cout << "Сообщение: ";
         std::string text;
         std::cin >> text;
-        strcpy_s(msg.text, text.c_str());
-        msg.text[sizeof(msg.text) - 1] = '\0';
+        
+        // Разделим сообщения на части
+        std::vector<msg_t> messages = splitTextIntoMessages(text);
 
-        // Отправка текстового сообщения
-        int n = sendto(sock, (const char *)&msg, sizeof(msg), 0, (struct sockaddr*)&addr, sizeof(addr));
+        for (size_t i = 0; i < messages.size(); i++) {  // Отправка сообщений
+            int n = sendto(sock, (const char*)&msg, sizeof(msg), 0, (struct sockaddr*)&addr, sizeof(addr));
 
-        if (n == SOCKET_ERROR) {    // Сообщение не получилось отправить
-            std::cout << "Ошибка при отправке сообщения: " << WSAGetLastError() << std::endl;
+            if (n == SOCKET_ERROR) {    // Сообщение не получилось отправить
+                std::cout << "Ошибка при отправке сообщения: " << WSAGetLastError() << std::endl;
+            }
         }
 
         msg.ver++;
