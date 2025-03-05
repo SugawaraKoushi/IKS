@@ -15,11 +15,15 @@ const int message_len = 10; // Ограничитель текста сообщ�
 
 struct msg_t {
     short ver;          // версия (какая часть сообщения)
-    short len;          // длина сообщений
+    short len;          // количество фрагментов сообщения
     char text[message_len + 1];     // текст сообщения
 };
 
 #pragma pack()
+
+bool compare(msg_t& left, msg_t& right) {
+    return left.ver < right.ver;
+}
 
 /// <summary>
 /// Начальная инициализация приложения
@@ -123,7 +127,7 @@ bool findRecieverAddress(std::string &reciever) {
 }
 
 /// <summary>
-/// Делит текст сообщения на части
+/// Делит текст сообщения на фрагменты
 /// </summary>
 /// <param name="text">Текст</param>
 /// <returns>Список сообщений для отправки</returns>
@@ -164,13 +168,14 @@ void recieveMessages(SOCKET sock) {
     char hostname[256];
     int err = gethostname(hostname, sizeof(hostname));
     std::vector<std::string> ips;
-    getHostAddr(hostname, ips);
+    getHostAddr(hostname, ips);    
 
     while (true) {
         std::string text;
         std::string senderIP;
+        std::vector<msg_t> messages;
 
-        // Формируем одно сообщение из частей
+        // Собираем сообщения в буфер
         do {
             int n = recvfrom(sock, (char*)&msg, sizeof(msg), 0, (struct sockaddr*)&sin, &len);
 
@@ -180,15 +185,22 @@ void recieveMessages(SOCKET sock) {
             else {
                 senderIP = inet_ntoa(sin.sin_addr);
 
-                if (std::find(ips.begin(), ips.end(), senderIP) == ips.end()) {
-                    text += msg.text;
-                }
+                //if (std::find(ips.begin(), ips.end(), senderIP) == ips.end()) {
+                    messages.push_back(msg);
+                //}
             }
-        } while (msg.ver != msg.len);
-        
-        if (std::find(ips.begin(), ips.end(), senderIP) == ips.end()) {
+        } while (messages.size() != msg.len);
+
+        // Формируем полный текст сообщения из фрагментов
+        //if (std::find(ips.begin(), ips.end(), senderIP) == ips.end()) {
+            std::sort(messages.begin(), messages.end(), compare);
+
+            for (int i = 0; i < messages.size(); i++) {
+                text += messages.at(i).text;
+            }
+
             std::cout << "[" << senderIP << "]: " << text << std::endl;
-        }
+        //}
     }
 }
 
