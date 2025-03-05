@@ -15,7 +15,6 @@ const int message_len = 10; // Ограничитель текста сообщ�
 
 struct msg_t {
     short ver;          // версия (какая часть сообщения)
-    short type;         // тип сообщения
     short len;          // длина сообщений
     char text[message_len + 1];     // текст сообщения
 };
@@ -141,7 +140,6 @@ std::vector<msg_t> splitTextIntoMessages(std::string text) {
     
     for (size_t i = 0; i < text.length(); i += message_len) {
         msg_t msg;
-        msg.type = 1;
         msg.ver = ver++;
         msg.len = parts;
         std::string substr = text.substr(i, message_len).c_str();
@@ -182,15 +180,15 @@ void recieveMessages(SOCKET sock) {
             else {
                 senderIP = inet_ntoa(sin.sin_addr);
 
-                //if (std::find(ips.begin(), ips.end(), senderIP) == ips.end()) {
+                if (std::find(ips.begin(), ips.end(), senderIP) == ips.end()) {
                     text += msg.text;
-                //}
+                }
             }
         } while (msg.ver != msg.len);
         
-        //if (std::find(ips.begin(), ips.end(), senderIP) == ips.end()) {
+        if (std::find(ips.begin(), ips.end(), senderIP) == ips.end()) {
             std::cout << "[" << senderIP << "]: " << text << std::endl;
-        //}
+        }
     }
 }
 
