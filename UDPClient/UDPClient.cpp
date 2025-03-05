@@ -185,14 +185,14 @@ void recieveMessages(SOCKET sock) {
             else {
                 senderIP = inet_ntoa(sin.sin_addr);
 
-                //if (std::find(ips.begin(), ips.end(), senderIP) == ips.end()) {
+                if (std::find(ips.begin(), ips.end(), senderIP) == ips.end()) {
                     messages.push_back(msg);
-                //}
+                }
             }
         } while (messages.size() != msg.len);
 
         // Формируем полный текст сообщения из фрагментов
-        //if (std::find(ips.begin(), ips.end(), senderIP) == ips.end()) {
+        if (std::find(ips.begin(), ips.end(), senderIP) == ips.end()) {
             std::sort(messages.begin(), messages.end(), compare);
 
             for (int i = 0; i < messages.size(); i++) {
@@ -200,7 +200,7 @@ void recieveMessages(SOCKET sock) {
             }
 
             std::cout << "[" << senderIP << "]: " << text << std::endl;
-        //}
+        }
     }
 }
 
@@ -211,7 +211,6 @@ void recieveMessages(SOCKET sock) {
 /// <param name="addr">Адрес отправки</param>
 void sendMessages(SOCKET sock, sockaddr_in addr) {
     while (true) {
-        std::cout << "Сообщение: ";
         std::string text;
         std::getline(std::cin, text);
 
