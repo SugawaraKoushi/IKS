@@ -29,18 +29,31 @@ void handleClient(SOCKET clientSocket) {
         return;
     }
 
-    std::string fileName(buffer, bytesReceived);
+    
+    //std::string fileName(buffer, bytesReceived);
+    std::string fileName;
+    fileName.append(buffer, bytesReceived);
+
+    if (fileName.find('\n') != std::string::npos) {
+        fileName.erase(fileName.find('\n')); // Удаляем разделитель
+    }
 
     // Получим размер файла
     bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
-
+    std::string fileSizeStr;
     if (bytesReceived <= 0) {
         closesocket(clientSocket);
         std::cout << "Ошибка при получении размера файла" << std::endl;
         return;
     }
 
-    long fileSize = atol(buffer);
+    fileSizeStr.append(buffer, bytesReceived);
+
+    if (fileSizeStr.find('\n') != std::string::npos) {
+        fileSizeStr.erase(fileSizeStr.find('\n')); // Удаляем разделитель
+    }
+
+    long fileSize = atol(fileSizeStr.c_str());
 
     // Откроем файл для записи
     std::ofstream file(fileName, std::ios::binary);

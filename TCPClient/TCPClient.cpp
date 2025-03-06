@@ -6,6 +6,8 @@
 #include <string>
 #include <fstream>
 #include <thread>
+#include <chrono>
+
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -39,10 +41,26 @@ void sendFile(SOCKET socket, std::string& path) {
     // Отправим данные файла на сервер
     char buffer[BUFFER_SIZE];
 
+    std::streamsize s = 0;
+
     while (!file.eof()) {
         file.read(buffer, BUFFER_SIZE);
         send(socket, buffer, file.gcount(), 0);
+        s += file.gcount();
+        std::cout << "Отправлено байт:" << s << std::endl;
     }
+
+    //while (file) {
+    //    file.read(buffer, BUFFER_SIZE);
+    //    int bytesRead = file.gcount();
+
+    //    if (bytesRead > 0) {
+    //        send(socket, buffer, bytesRead, 0);
+    //        s += bytesRead;
+    //        std::cout << "Отправлено байт: " << s << std::endl;
+    //        Sleep(1000);
+    //    }
+    //}
 
     file.close();
 
@@ -51,7 +69,7 @@ void sendFile(SOCKET socket, std::string& path) {
     int bytesRecived = recv(socket, msg, BUFFER_SIZE, 0);
 
     if (bytesRecived > 0) {
-        msg[bytesRecived - 1] = '\0';
+        msg[bytesRecived] = '\0';
         std::cout << "Ответ от сервера: " << msg << std::endl;
     }
 }
@@ -83,10 +101,19 @@ int main() {
     sockaddr_in serverAddr = { 0 };
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(1234);
-    serverAddr.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
+    serverAddr.sin_addr.S_un.S_addr = inet_addr("26.47.32.61");
 
     // Подключаемся к серверу
     err = connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr));
+
+    // После подключения к серверу ожидаем от него ответ
+    char ackBuffer[1024];
+    int bytesReceived = recv(clientSocket, ackBuffer, sizeof(ackBuffer), 0);
+
+    if (bytesReceived > 0) {
+        ackBuffer[bytesReceived] = '\0';
+        std::cout << "Сервер: " << ackBuffer << std::endl;
+    }
 
     if (err == SOCKET_ERROR) {
         closesocket(clientSocket);
