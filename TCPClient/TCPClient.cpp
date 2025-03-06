@@ -35,12 +35,12 @@ void sendFile(SOCKET socket, std::string& path) {
 
     // Отправим имя файла на сервер
     std::string fileName = path.substr(path.find_last_of("\\") + 1);
-    fileName += '\0';
+    fileName += '\n';
     send(socket, fileName.c_str(), fileName.size(), 0);
 
     // Отправим размер файла на сервер
     std::string fileSizeStr = std::to_string(fileSize);
-    fileSizeStr += '\0';
+    fileSizeStr += '\n';
     send(socket, fileSizeStr.c_str(), fileSizeStr.size(), 0);
 
     // Отправим данные файла на сервер

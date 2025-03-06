@@ -20,6 +20,7 @@ void handleClient(SOCKET clientSocket) {
     const char* ackMsg = "Готов к приему данных";
     send(clientSocket, ackMsg, strlen(ackMsg), 0);
 
+    // Получение команды от клиента на получение данных
     bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
 
     if (bytesReceived >= 0) {
@@ -36,7 +37,7 @@ void handleClient(SOCKET clientSocket) {
         return;
     }
 
-    buffer[bytesReceived] = '\0';
+    buffer[bytesReceived - 1] = '\0';
     std::string fileName(buffer, bytesReceived);
 
     // Получим размер файла
@@ -48,7 +49,7 @@ void handleClient(SOCKET clientSocket) {
         return;
     }
 
-    buffer[bytesReceived] = '\0';
+    buffer[bytesReceived - 1] = '\0';
     long fileSize = atol(buffer);
 
     // Откроем файл для записи
