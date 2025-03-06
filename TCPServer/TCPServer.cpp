@@ -14,23 +14,23 @@ const int BUFFER_SIZE = 4096;
 /// <param name="clientSocket">Сокет клиента</param>
 void handleClient(SOCKET clientSocket) {
     char buffer[BUFFER_SIZE];
-    int bytesRecieved;
+    int bytesReceived;
 
     // Получим имя файла
-    bytesRecieved = recv(clientSocket, buffer, BUFFER_SIZE, 0);
+    bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
 
-    if (bytesRecieved <= 0) {
+    if (bytesReceived <= 0) {
         closesocket(clientSocket);
         std::cout << "Ошибка при получении имени файла" << std::endl;
         return;
     }
 
-    std::string fileName(buffer, bytesRecieved);
+    std::string fileName(buffer, bytesReceived);
 
     // Получим размер файла
-    bytesRecieved = recv(clientSocket, buffer, BUFFER_SIZE, 0);
+    bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
 
-    if (bytesRecieved <= 0) {
+    if (bytesReceived <= 0) {
         closesocket(clientSocket);
         std::cout << "Ошибка при получении размера файла" << std::endl;
         return;
@@ -48,24 +48,34 @@ void handleClient(SOCKET clientSocket) {
     }
 
     // Получим данные файла
-    long totalBytesRecieved = 0;
+    long totalBytesReceived = 0;
+    
+    while (totalBytesReceived < fileSize) {
+        bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
 
-    while (totalBytesRecieved < fileSize) {
-        bytesRecieved = recv(clientSocket, buffer, BUFFER_SIZE, 0);
-
-        if (bytesRecieved <= 0) {
+        if (bytesReceived <= 0) {
             file.close();
             closesocket(clientSocket);
             std::cout << "Ошибка при получении данных файла" << std::endl;
             return;
         }
 
-        file.write(buffer, bytesRecieved);
-        totalBytesRecieved += bytesRecieved;
+        file.write(buffer, bytesReceived);
+        totalBytesReceived += bytesReceived;
+
+        // Вывод прогресса
+        double progress = totalBytesReceived / fileSize * 100;
+        std::cout << "Прогресс: " << progress << "%" << std::endl;
     }
 
     file.close();
-    std::cout << "Файл " << fileName << " успешно получен" << std::endl;
+
+    if (totalBytesReceived != fileSize) {
+        std::cerr << "Файл передан не полностью. Ожидалось: " << fileSize << ", получено: " << totalBytesReceived << std::endl;
+    }
+    else {
+        std::cout << "Файл " << fileName << " успешно получен" << std::endl;
+    }
 
     // Вернем подтверждение, что файл получен
     const char* msg = "Файл получен!";
