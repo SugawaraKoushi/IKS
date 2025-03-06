@@ -30,12 +30,17 @@ void sendFile(SOCKET socket, std::string& path) {
     long fileSize = file.tellg();
     file.seekg(0, std::ios::beg);
 
+    const char* ackMsg = "Отправляю данные";
+    send(socket, ackMsg, strlen(ackMsg), 0);
+
     // Отправим имя файла на сервер
     std::string fileName = path.substr(path.find_last_of("\\") + 1);
+    fileName += '\0';
     send(socket, fileName.c_str(), fileName.size(), 0);
 
     // Отправим размер файла на сервер
     std::string fileSizeStr = std::to_string(fileSize);
+    fileSizeStr += '\0';
     send(socket, fileSizeStr.c_str(), fileSizeStr.size(), 0);
 
     // Отправим данные файла на сервер
@@ -50,18 +55,6 @@ void sendFile(SOCKET socket, std::string& path) {
         std::cout << "Отправлено байт:" << s << std::endl;
     }
 
-    //while (file) {
-    //    file.read(buffer, BUFFER_SIZE);
-    //    int bytesRead = file.gcount();
-
-    //    if (bytesRead > 0) {
-    //        send(socket, buffer, bytesRead, 0);
-    //        s += bytesRead;
-    //        std::cout << "Отправлено байт: " << s << std::endl;
-    //        Sleep(1000);
-    //    }
-    //}
-
     file.close();
 
     // Получим подтверждение об успешной отправке файла
@@ -70,7 +63,7 @@ void sendFile(SOCKET socket, std::string& path) {
 
     if (bytesRecived > 0) {
         msg[bytesRecived] = '\0';
-        std::cout << "Ответ от сервера: " << msg << std::endl;
+        std::cout << "Сервер: " << msg << std::endl;
     }
 }
 
