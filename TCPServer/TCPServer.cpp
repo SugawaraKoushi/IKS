@@ -72,14 +72,14 @@ void handleClient(SOCKET clientSocket) {
 
     if (totalBytesReceived != fileSize) {
         std::cerr << "Файл передан не полностью. Ожидалось: " << fileSize << ", получено: " << totalBytesReceived << std::endl;
+        const char* msg = "Файл получен неполностью";
+        send(clientSocket, msg, strlen(msg), 0);
     }
     else {
         std::cout << "Файл " << fileName << " успешно получен" << std::endl;
+        const char* msg = "Файл получен";
+        send(clientSocket, msg, strlen(msg), 0);
     }
-
-    // Вернем подтверждение, что файл получен
-    const char* msg = "Файл получен!";
-    send(clientSocket, msg, strlen(msg), 0);
 
     closesocket(clientSocket);
 }
