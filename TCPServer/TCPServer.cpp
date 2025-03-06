@@ -29,28 +29,46 @@ void handleClient(SOCKET clientSocket) {
     }
 
     // Получим имя файла
-    bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
+    std::string fileName;
 
-    if (bytesReceived <= 0) {
-        closesocket(clientSocket);
-        std::cout << "Ошибка при получении имени файла" << std::endl;
-        return;
+    while (true) {
+        int bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
+
+        if (bytesReceived <= 0) {
+            closesocket(clientSocket);
+            std::cout << "Ошибка при получении имени файла" << std::endl;
+            return;
+        }
+
+        fileName.append(buffer, bytesReceived);
+
+        if (fileName.find('\n') != std::string::npos) {
+            fileName.erase(fileName.find('\n')); // Удаляем разделитель
+            break;
+        }
     }
-
-    buffer[bytesReceived - 1] = '\0';
-    std::string fileName(buffer, bytesReceived);
 
     // Получим размер файла
-    bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
+    std::string fileSizeStr;
 
-    if (bytesReceived <= 0) {
-        closesocket(clientSocket);
-        std::cout << "Ошибка при получении размера файла" << std::endl;
-        return;
+    while (true) {
+        int bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
+
+        if (bytesReceived <= 0) {
+            closesocket(clientSocket);
+            std::cout << "Ошибка при получении размера файла" << std::endl;
+            return;
+        }
+
+        fileSizeStr.append(buffer, bytesReceived);
+
+        if (fileSizeStr.find('\n') != std::string::npos) {
+            fileSizeStr.erase(fileSizeStr.find('\n')); // Удаляем разделитель
+            break;
+        }
     }
 
-    buffer[bytesReceived - 1] = '\0';
-    long fileSize = atol(buffer);
+    long fileSize = atol(fileSizeStr.c_str());
 
     // Откроем файл для записи
     std::ofstream file(fileName, std::ios::binary);
