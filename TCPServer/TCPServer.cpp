@@ -36,8 +36,8 @@ void handleClient(SOCKET clientSocket) {
         return;
     }
 
+    buffer[bytesReceived] = '\0';
     std::string fileName(buffer, bytesReceived);
-    fileName[bytesReceived] = '\0';
 
     // Получим размер файла
     bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
@@ -48,6 +48,7 @@ void handleClient(SOCKET clientSocket) {
         return;
     }
 
+    buffer[bytesReceived] = '\0';
     long fileSize = atol(buffer);
 
     // Откроем файл для записи
