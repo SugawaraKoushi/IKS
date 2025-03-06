@@ -30,9 +30,6 @@ void sendFile(SOCKET socket, std::string& path) {
     long fileSize = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    const char* ackMsg = "Отправляю данные";
-    send(socket, ackMsg, strlen(ackMsg), 0);
-
     // Отправим имя файла на сервер
     std::string fileName = path.substr(path.find_last_of("\\") + 1);
     fileName += '\n';
@@ -46,13 +43,9 @@ void sendFile(SOCKET socket, std::string& path) {
     // Отправим данные файла на сервер
     char buffer[BUFFER_SIZE];
 
-    std::streamsize s = 0;
-
     while (!file.eof()) {
         file.read(buffer, BUFFER_SIZE);
         send(socket, buffer, file.gcount(), 0);
-        s += file.gcount();
-        std::cout << "Отправлено байт:" << s << std::endl;
     }
 
     file.close();
@@ -98,15 +91,6 @@ int main() {
 
     // Подключаемся к серверу
     err = connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr));
-
-    // После подключения к серверу ожидаем от него ответ
-    char ackBuffer[1024];
-    int bytesReceived = recv(clientSocket, ackBuffer, sizeof(ackBuffer), 0);
-
-    if (bytesReceived > 0) {
-        ackBuffer[bytesReceived] = '\0';
-        std::cout << "Сервер: " << ackBuffer << std::endl;
-    }
 
     if (err == SOCKET_ERROR) {
         closesocket(clientSocket);

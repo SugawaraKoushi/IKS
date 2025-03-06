@@ -73,6 +73,7 @@ void handleClient(SOCKET clientSocket) {
 
     // Открываем файл для записи
     std::ofstream file(fileName, std::ios::binary);
+
     if (!file.is_open()) {
         closesocket(clientSocket);
         std::cout << "Ошибка при открытии файла для записи" << std::endl;
@@ -104,10 +105,18 @@ void handleClient(SOCKET clientSocket) {
         std::cout << "Получено байт: " << bytesReceived << " (всего: " << totalBytesReceived << ")" << std::endl;
     }
 
+    if (totalBytesReceived != fileSize) {
+        std::cerr << "Файл передан не полностью. Ожидалось: " << fileSize << ", получено: " << totalBytesReceived << std::endl;
+        const char* msg = "Файл получен неполностью";
+        send(clientSocket, msg, strlen(msg), 0);
+    }
+    else {
+        std::cout << "Файл " << fileName << " успешно получен" << std::endl;
+        const char* msg = "Файл успешно получен";
+        send(clientSocket, msg, strlen(msg), 0);
+    }
+
     file.close();
-
-    std::cout << "Файл успешно получен" << std::endl;
-
     closesocket(clientSocket);
 }
 
