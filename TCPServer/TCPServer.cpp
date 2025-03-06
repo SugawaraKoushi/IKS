@@ -49,8 +49,9 @@ void handleClient(SOCKET clientSocket) {
     std::string fileName;
     long fileSize = 0;
     std::string remainingData; // Оставшиеся данные после извлечения имени и размера файла
+    bool isDone = false;
 
-    while (true) {
+    do {
         // Получаем данные от клиента
         int bytesReceived = recv(clientSocket, tempBuffer, BUFFER_SIZE, 0);
 
@@ -64,12 +65,8 @@ void handleClient(SOCKET clientSocket) {
         buffer.append(tempBuffer, bytesReceived);
 
         // Пытаемся извлечь имя файла и размер файла
-        if (extractData(buffer, fileName, fileSize, remainingData)) {
-            std::cout << "Имя файла: " << fileName << std::endl;
-            std::cout << "Размер файла: " << fileSize << std::endl;
-            break; // Данные успешно извлечены
-        }
-    }
+        isDone = extractData(buffer, fileName, fileSize, remainingData);
+    } while (!isDone);
 
     // Открываем файл для записи
     std::ofstream file(fileName, std::ios::binary);
@@ -83,13 +80,12 @@ void handleClient(SOCKET clientSocket) {
     // Записываем оставшиеся данные в файл
     if (!remainingData.empty()) {
         file.write(remainingData.c_str(), remainingData.size());
-        fileSize -= remainingData.size();
         std::cout << "Записано байт из буфера: " << remainingData.size() << std::endl;
     }
 
-    // Получаем оставшиеся данные файла
     long totalBytesReceived = remainingData.size();
 
+    // Получаем оставшиеся данные файла
     while (totalBytesReceived < fileSize) {
         int bytesReceived = recv(clientSocket, tempBuffer, BUFFER_SIZE, 0);
 
