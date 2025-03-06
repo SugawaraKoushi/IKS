@@ -20,6 +20,13 @@ void handleClient(SOCKET clientSocket) {
     const char* ackMsg = "Готов к приему данных";
     send(clientSocket, ackMsg, strlen(ackMsg), 0);
 
+    bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
+
+    if (bytesReceived >= 0) {
+        buffer[bytesReceived] = '\0';
+        std::cout << "Клиент: " << buffer << std::endl;
+    }
+
     // Получим имя файла
     bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
 
@@ -30,6 +37,7 @@ void handleClient(SOCKET clientSocket) {
     }
 
     std::string fileName(buffer, bytesReceived);
+    fileName[bytesReceived] = '\0';
 
     // Получим размер файла
     bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
