@@ -9,81 +9,88 @@
 const int BUFFER_SIZE = 4096;
 
 /// <summary>
+/// Получение данных от клиента из буфера
+/// </summary>
+/// <param name="buffer">буффер с данными от клиента</param>
+/// <param name="fileName">имя файла</param>
+/// <param name="fileSize">размер файла</param>
+/// <param name="remainingData">часть данных файла</param>
+/// <returns>Получили ли все данные или нет</returns>
+bool extractData(std::string& buffer, std::string& fileName, long& fileSize, std::string& remainingData) {
+    size_t fileNameEnd = buffer.find('\n');
+
+    if (fileNameEnd == std::string::npos) {
+        return false; // Имя файла не полностью получено
+    }
+
+    fileName = buffer.substr(0, fileNameEnd);
+
+    size_t fileSizeEnd = buffer.find('\n', fileNameEnd + 1);
+
+    if (fileSizeEnd == std::string::npos) {
+        return false; // Размер файла не полностью получен
+    }
+
+    std::string fileSizeStr = buffer.substr(fileNameEnd + 1, fileSizeEnd - (fileNameEnd + 1));
+    fileSize = atol(fileSizeStr.c_str());
+
+    // Сохраняем оставшиеся данные
+    remainingData = buffer.substr(fileSizeEnd + 1);
+    return true;
+}
+
+/// <summary>
 /// Обрабатывает загрузку файлов от клиента
 /// </summary>
 /// <param name="clientSocket">Сокет клиента</param>
 void handleClient(SOCKET clientSocket) {
-    char buffer[BUFFER_SIZE];
-    int bytesReceived;
-
-    // После принятия соединения
-    const char* ackMsg = "Готов к приему данных";
-    send(clientSocket, ackMsg, strlen(ackMsg), 0);
-
-    // Получение команды от клиента на получение данных
-    bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
-
-    if (bytesReceived >= 0) {
-        buffer[bytesReceived] = '\0';
-        std::cout << "Клиент: " << buffer << std::endl;
-    }
-
-    // Получим имя файла
+    char tempBuffer[BUFFER_SIZE];
+    std::string buffer; // Буфер для хранения данных
     std::string fileName;
+    long fileSize = 0;
+    std::string remainingData; // Оставшиеся данные после извлечения имени и размера файла
 
     while (true) {
-        int bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
+        // Получаем данные от клиента
+        int bytesReceived = recv(clientSocket, tempBuffer, BUFFER_SIZE, 0);
 
         if (bytesReceived <= 0) {
             closesocket(clientSocket);
-            std::cout << "Ошибка при получении имени файла" << std::endl;
+            std::cout << "Ошибка при получении данных" << std::endl;
             return;
         }
 
-        fileName.append(buffer, bytesReceived);
+        // Добавляем данные в буфер
+        buffer.append(tempBuffer, bytesReceived);
 
-        if (fileName.find('\n') != std::string::npos) {
-            fileName.erase(fileName.find('\n')); // Удаляем разделитель
-            break;
+        // Пытаемся извлечь имя файла и размер файла
+        if (extractData(buffer, fileName, fileSize, remainingData)) {
+            std::cout << "Имя файла: " << fileName << std::endl;
+            std::cout << "Размер файла: " << fileSize << std::endl;
+            break; // Данные успешно извлечены
         }
     }
 
-    // Получим размер файла
-    std::string fileSizeStr;
-
-    while (true) {
-        int bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
-
-        if (bytesReceived <= 0) {
-            closesocket(clientSocket);
-            std::cout << "Ошибка при получении размера файла" << std::endl;
-            return;
-        }
-
-        fileSizeStr.append(buffer, bytesReceived);
-
-        if (fileSizeStr.find('\n') != std::string::npos) {
-            fileSizeStr.erase(fileSizeStr.find('\n')); // Удаляем разделитель
-            break;
-        }
-    }
-
-    long fileSize = atol(fileSizeStr.c_str());
-
-    // Откроем файл для записи
+    // Открываем файл для записи
     std::ofstream file(fileName, std::ios::binary);
-
     if (!file.is_open()) {
         closesocket(clientSocket);
         std::cout << "Ошибка при открытии файла для записи" << std::endl;
         return;
     }
 
-    // Получим данные файла
-    long totalBytesReceived = 0;
-    
+    // Записываем оставшиеся данные в файл
+    if (!remainingData.empty()) {
+        file.write(remainingData.c_str(), remainingData.size());
+        fileSize -= remainingData.size();
+        std::cout << "Записано байт из буфера: " << remainingData.size() << std::endl;
+    }
+
+    // Получаем оставшиеся данные файла
+    long totalBytesReceived = remainingData.size();
+
     while (totalBytesReceived < fileSize) {
-        bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
+        int bytesReceived = recv(clientSocket, tempBuffer, BUFFER_SIZE, 0);
 
         if (bytesReceived <= 0) {
             file.close();
@@ -92,26 +99,14 @@ void handleClient(SOCKET clientSocket) {
             return;
         }
 
-        file.write(buffer, bytesReceived);
+        file.write(tempBuffer, bytesReceived);
         totalBytesReceived += bytesReceived;
-
-        // Вывод прогресса
-        double progress = totalBytesReceived / fileSize * 100;
-        std::cout << "Прогресс: " << progress << "%" << std::endl;
+        std::cout << "Получено байт: " << bytesReceived << " (всего: " << totalBytesReceived << ")" << std::endl;
     }
 
     file.close();
 
-    if (totalBytesReceived != fileSize) {
-        std::cerr << "Файл передан не полностью. Ожидалось: " << fileSize << ", получено: " << totalBytesReceived << std::endl;
-        const char* msg = "Файл получен неполностью";
-        send(clientSocket, msg, strlen(msg), 0);
-    }
-    else {
-        std::cout << "Файл " << fileName << " успешно получен" << std::endl;
-        const char* msg = "Файл получен";
-        send(clientSocket, msg, strlen(msg), 0);
-    }
+    std::cout << "Файл успешно получен" << std::endl;
 
     closesocket(clientSocket);
 }
