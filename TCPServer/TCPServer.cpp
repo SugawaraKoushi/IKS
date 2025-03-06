@@ -16,6 +16,10 @@ void handleClient(SOCKET clientSocket) {
     char buffer[BUFFER_SIZE];
     int bytesReceived;
 
+    // После принятия соединения
+    const char* ackMsg = "Готов к приему данных";
+    send(clientSocket, ackMsg, strlen(ackMsg), 0);
+
     // Получим имя файла
     bytesReceived = recv(clientSocket, buffer, BUFFER_SIZE, 0);
 
